@@ -1,5 +1,5 @@
 path:
-  root: ???
+  root: /home/ymasuyama/cmu-cec2/dataset
   metadata_dir: ${path.root}/clarity_data/metadata
 
 random_seed: 0
