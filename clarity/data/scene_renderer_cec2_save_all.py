@@ -264,11 +264,18 @@ class SceneRenderer:
         hoa_target_anechoic_rotated = self.hoa_rotator.rotate(hoa_target_anechoic, th)
         hoa_target_rotated = self.hoa_rotator.rotate(hoa_target, th)
         flat_hoa_interferers_rotated = self.hoa_rotator.rotate(flat_hoa_interferers, th)
+        all_hoa_interferers_rotated = [
+            self.hoa_rotator.rotate(padded_interferer, th)
+            for padded_interferer in padded_interferers
+        ]
+        # assert np.max(np.abs(flat_hoa_interferers_rotated-sum(all_hoa_interferers_rotated))) == 0., \
+        #     np.max(np.abs(flat_hoa_interferers_rotated-sum(all_hoa_interferers_rotated)))
 
         return (
             hoa_target_rotated,
             flat_hoa_interferers_rotated,
             hoa_target_anechoic_rotated,
+            all_hoa_interferers_rotated,
             th,
         )
 
@@ -288,7 +295,7 @@ class SceneRenderer:
         wavfile.write(filename, FS, signal_16)
 
     def generate_binaural_signals(
-        self, scene, hoa_target, hoa_interferer, hoa_target_anechoic, out_path
+        self, scene, hoa_target, hoa_interferer, hoa_target_anechoic, hoa_all_interferers, out_path
     ):
         """Generate and write binaural signals.
         Args:
@@ -317,11 +324,22 @@ class SceneRenderer:
             for hrir in hrirs
         ]
 
-        target_anechoic = hoa.binaural_mixdown(
-            hoa_target_anechoic,
-            hrirs[ref_chan],  # Uses the reference channel's HRIR
-            self.metadata.hrir_metadata,
-        )
+        target_anechoics = [
+            hoa.binaural_mixdown(hoa_target_anechoic, hrir, self.metadata.hrir_metadata)
+            for hrir in hrirs
+        ]
+
+        all_interferers = []
+        for hoa_interferer_k in hoa_all_interferers:
+            all_interferers.append(
+                [
+                    hoa.binaural_mixdown(hoa_interferer_k, hrir, self.metadata.hrir_metadata)
+                    for hrir in hrirs
+                ]
+            )
+
+        # assert np.max(np.abs(np.array(interferers)-(np.sum(np.array(all_interferers), axis=0)))) == 0., \
+        #     np.max(np.abs(np.array(interferers)-(np.sum(np.array(all_interferers), axis=0))))
 
         # Measure pre-scaled SNR at reference channel
         start_time = scene["target"]["time_start"]
@@ -336,12 +354,17 @@ class SceneRenderer:
         for interferer in interferers:
             interferer *= sw_snr * hoa.dB_to_gain(-desired_snr)
 
+        # Scale each interferer to achieve desired SNR at reference channel
+        for interferer_k in all_interferers:
+            for interferer in interferer_k:
+                interferer *= sw_snr * hoa.dB_to_gain(-desired_snr)
+
         # Make mixture by summing target and interferers
         mix = [t + i for t, i in zip(targets, interferers)]
         norm = np.max(mix)
 
         # Save all signal types for all channels
-        norms = self.channel_norms
+        norms = self.channel_norms  # [4.0, 2.0, 2.0, 2.0]
         out_path = out_path.format(dataset=scene["dataset"])
         file_stem = f"{out_path}/{scene['scene']}"
         for channel, (t, i, m, norm) in enumerate(
@@ -352,11 +375,19 @@ class SceneRenderer:
                     f"{file_stem}_{sig_type}_CH{channel}.wav", sig, norm
                 )
 
-        # Save the anechoic reference signal. Level normalised to abs max 1.0
-        norm = np.max(np.abs(target_anechoic))
-        self.save_signal_16bit(
-            f"{file_stem}_target_anechoic_CH{ref_chan}.wav", target_anechoic, norm
-        )
+        # Save the anechoic signal at all microphones. Clipping cab be caused
+        for channel, (ta, norm) in enumerate(zip(target_anechoics, norms)):
+            # logger.info(f'{file_stem}_{ta.shape, targets[0].shape}')
+            self.save_signal_16bit(
+                f"{file_stem}_target_anechoic_CH{channel}.wav", ta, norm
+            )
+
+        # Save each interferer
+        for k, interferer_k in enumerate(all_interferers):
+            for channel, (sig, norm) in enumerate(zip(interferer_k, norms)):
+                self.save_signal_16bit(
+                    f"{file_stem}_interferer_{k}_CH{channel}.wav", sig, norm
+                )
 
     def render_scenes(self, scenes):
         """Renders scenes.
@@ -372,7 +403,7 @@ class SceneRenderer:
 
         for scene in tqdm(scenes):
             # Stage 1: Generate the rotated signals in the HOA domain
-            target, interferers, anechoic, head_turn = self.generate_hoa_signals(scene)
+            target, interferers, anechoic, all_interferers, head_turn = self.generate_hoa_signals(scene)
 
             # Save the head rotation signal
             head_turn = (np.mod(head_turn, 2 * np.pi) - np.pi) / np.pi
@@ -383,5 +414,5 @@ class SceneRenderer:
 
             # Stage 2: Mix down to the binaural domain
             self.generate_binaural_signals(
-                scene, target, interferers, anechoic, output_path,
+                scene, target, interferers, anechoic, all_interferers, output_path,
             )

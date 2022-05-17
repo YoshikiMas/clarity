@@ -72,7 +72,7 @@ scene_renderer:
     paths:
       hoairs: ${path.root}/clarity_data/train/rooms/HOA_IRs
       hrirs: ${path.root}/clarity_data/hrir/HRIRs_MAT
-      scenes: ${path.root}/clarity_data/train/scenes
+      scenes: ${path.root}/clarity_data/train/scenes_save_all
       targets: ${path.root}/clarity_data/train/targets
       interferers: ${path.root}/clarity_data/train/interferers/{type}
     metadata:
@@ -84,7 +84,7 @@ scene_renderer:
     paths:
       hoairs: ${path.root}/clarity_data/dev/rooms/HOA_IRs
       hrirs: ${path.root}/clarity_data/hrir/HRIRs_MAT
-      scenes: ${path.root}/clarity_data/dev/scenes
+      scenes: ${path.root}/clarity_data/dev/scenes_save_all
       targets: ${path.root}/clarity_data/dev/targets
       interferers: ${path.root}/clarity_data/dev/interferers/{type}
     metadata:
