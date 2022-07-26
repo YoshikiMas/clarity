@@ -17,6 +17,11 @@ room_datasets:
     n_interferers: 3
     n_rooms: 2500
     start_room: 6001
+  demo:
+    rpf_location: ${path.root}/clarity_data/dev/rooms/rpf
+    n_interferers: 3
+    n_rooms: 200
+    start_room: 6001
 
 # Instantiate_scenes
 scene_datasets:
@@ -28,6 +33,10 @@ scene_datasets:
     n_scenes: 2500
     room_selection: SEQUENTIAL
     scene_start_index: 6001
+  demo:
+    n_scenes: 100
+    room_selection: RANDOM
+    scene_start_index: 6001
 
 target:
   target_speakers: ${path.metadata_dir}/target_speech_list.json
@@ -38,6 +47,7 @@ target:
 snr_range:
   train: [-12, 6]
   dev: [-12, 6]
+  demo: [-12, 6]
 
 interferer:
   speech_interferers: ${path.metadata_dir}/masker_speech_list.json
@@ -92,13 +102,24 @@ scene_renderer:
       scene_definitions: ${path.metadata_dir}/scenes.dev.json
       hrir_metadata: ${path.metadata_dir}/hrir_data.json
     chunk_size: 5
+  demo:
+    paths:
+      hoairs: ${path.root}/clarity_data/dev/rooms/HOA_IRs
+      hrirs: ${path.root}/clarity_data/hrir/HRIRs_MAT
+      scenes: ${path.root}/clarity_data/demo/scenes
+      targets: ${path.root}/clarity_data/dev/targets
+      interferers: ${path.root}/clarity_data/dev/interferers/{type}
+    metadata:
+      room_definitions: ${path.metadata_dir}/rooms.demo.json
+      scene_definitions: ${path.metadata_dir}/scenes.demo.json
+      hrir_metadata: ${path.metadata_dir}/hrir_data.json
+    chunk_size: 5
 
 render_params:
   ambisonic_order: 6
   equalise_loudness: False
   reference_channel: 1
-  channel_norms: [4.0, 2.0, 2.0, 2.0]
-
+  channel_norms: [12.0, 3.0, 3.0, 3.0]
 
 hydra:
   run:

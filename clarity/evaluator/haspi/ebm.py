@@ -1,10 +1,11 @@
-import numpy as np
 from math import floor
-from scipy.signal import convolve2d, convolve
+
+import numpy as np
+from scipy.signal import convolve, convolve2d
 
 
 def EnvFilt(xdB, ydB, fcut, fsub, fsamp):
-    '''
+    """
     Function to lowpass filter and subsample the envelope in dB SL produced
     by the model of the auditory periphery. The LP filter uses a von Hann
     raised cosine window to ensure that there are no negative envelope values
@@ -24,10 +25,10 @@ def EnvFilt(xdB, ydB, fcut, fsub, fsamp):
 
     James M. Kates, 12 September 2019.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
     # Check the filter design parameters
-    assert fsub <= fsamp, 'Error in ebm.EnvFilt: Subsampling rate too high.'
-    assert fcut <= 0.5 * fsub, 'Error in ebm.EnvFilt: LP cutoff frequency too high.'
+    assert fsub <= fsamp, "Error in ebm.EnvFilt: Subsampling rate too high."
+    assert fcut <= 0.5 * fsub, "Error in ebm.EnvFilt: LP cutoff frequency too high."
 
     # Check the data matrix orientation
     # Require each frequency band to be a separate column
@@ -53,10 +54,10 @@ def EnvFilt(xdB, ydB, fcut, fsub, fsamp):
     benv = benv / np.sum(benv)
 
     # LP filter for the envelopes at fsamp
-    xenv = convolve2d(xdB, np.expand_dims(benv, 1), 'full')  # 2D convolution
-    xenv = xenv[nhalf:nhalf + nsamp, :]
-    yenv = convolve2d(ydB, np.expand_dims(benv, 1), 'full')
-    yenv = yenv[nhalf:nhalf + nsamp, :]
+    xenv = convolve2d(xdB, np.expand_dims(benv, 1), "full")  # 2D convolution
+    xenv = xenv[nhalf : nhalf + nsamp, :]
+    yenv = convolve2d(ydB, np.expand_dims(benv, 1), "full")
+    yenv = yenv[nhalf : nhalf + nsamp, :]
 
     # Subsample the LP filtered envelopes
     space = floor(fsamp / fsub)
@@ -68,7 +69,7 @@ def EnvFilt(xdB, ydB, fcut, fsub, fsamp):
 
 
 def CepCoef(xdB, ydB, thrCep, thrNerve, nbasis):
-    '''
+    """
     Function to compute the cepstral correlation coefficients between the
     reference signal and the distorted signal log envelopes. The silence
     portions of the signals are removed prior to the calculation based on the
@@ -93,7 +94,7 @@ def CepCoef(xdB, ydB, thrCep, thrNerve, nbasis):
     Gammawarp version to fit the basis functions, 11 February 2019.
     Additive noise for IHC firing rates, 24 April 2019.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
     # Processing parameters
     nbands = xdB.shape[1]
 
@@ -104,7 +105,7 @@ def CepCoef(xdB, ydB, thrCep, thrNerve, nbasis):
 
     for nb in range(nbasis):
         basis = np.cos(freq[nb] * np.pi * k / (nbands - 1))
-        cepm[:, nb] = basis / np.sqrt(np.sum(basis ** 2))
+        cepm[:, nb] = basis / np.sqrt(np.sum(basis**2))
 
     # Find the reference segments that lie sufficiently above the quiescent rate
     xLinear = 10 ** (xdB / 20)  # Convert envelope dB to linear (specific loudness)
@@ -114,7 +115,7 @@ def CepCoef(xdB, ydB, thrCep, thrNerve, nbasis):
     nsamp = len(index)  # Number of segments above threshold
 
     # Exit if not enough segments above zero
-    assert nsamp > 1, 'Function ebm_CepCoef: Signal below threshold'
+    assert nsamp > 1, "Function ebm_CepCoef: Signal below threshold"
 
     # Remove the silent samples
     xdB = xdB[index, :]
@@ -142,7 +143,7 @@ def CepCoef(xdB, ydB, thrCep, thrNerve, nbasis):
 
 
 def AddNoise(ydB, thrdB):
-    '''
+    """
     Function to add independent random Gaussian noise to the subsampled
     signal envelope in each auditory frequency band.
 
@@ -156,10 +157,12 @@ def AddNoise(ydB, thrdB):
 
     James M. Kates, 23 April 2019.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
     # Additive noise sequence
-    rng = np.random.default_rng()
-    noise = thrdB * rng.standard_normal(ydB.shape)  # Gaussian noise with RMS=1, then scaled
+    # rng = np.random.default_rng()
+    noise = thrdB * np.random.standard_normal(
+        ydB.shape
+    )  # Gaussian noise with RMS=1, then scaled
 
     # Add the noise to the signal envelope
     zdB = ydB + noise
@@ -167,7 +170,7 @@ def AddNoise(ydB, thrdB):
 
 
 def ModFilt(Xenv, Yenv, fsub):
-    '''
+    """
     Function to apply an FIR modulation filterbank to the reference envelope
     signals contained in matrix Xenv and the processed signal envelope
     signals in matrix Yenv. Each column in Xenv and Yenv is a separate filter
@@ -199,7 +202,7 @@ def ModFilt(Xenv, Yenv, fsub):
     James M. Kates, 14 February 2019.
     Two matrix version of gwarp_ModFiltWindow, 19 February 2019.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
 
     # Input signal properties
     nsamp = Xenv.shape[0]
@@ -262,23 +265,31 @@ def ModFilt(Xenv, Yenv, fsub):
         for m in range(nchan):  # Loop over the input signal vectors
             # Reference signal
             x = Xenv[:, m]  # Extract the frequency or cepstral coefficient band
-            u = convolve((x * c - 1j * x * s), bk)  # Complex demodulation, then LP filter
-            u = u[nh:nh + nsamp]  # Truncate the filter transients
-            xfilt = np.real(u) * c - np.imag(u) * s  # Modulate back up to the carrier freq
+            u = convolve(
+                (x * c - 1j * x * s), bk
+            )  # Complex demodulation, then LP filter
+            u = u[nh : nh + nsamp]  # Truncate the filter transients
+            xfilt = (
+                np.real(u) * c - np.imag(u) * s
+            )  # Modulate back up to the carrier freq
             Xmod[m, k, :] = xfilt  # Save the filtered signal
 
             # Processed signal
             y = Yenv[:, m]  # Extract the frequency or cepstral coefficient band
-            v = convolve((y * c - 1j * y * s), bk)  # Complex demodulation, then LP filter
-            v = v[nh:nh + nsamp]  # Truncate the filter transients
-            yfilt = np.real(v) * c - np.imag(v) * s  # Modulate back up to the carrier freq
+            v = convolve(
+                (y * c - 1j * y * s), bk
+            )  # Complex demodulation, then LP filter
+            v = v[nh : nh + nsamp]  # Truncate the filter transients
+            yfilt = (
+                np.real(v) * c - np.imag(v) * s
+            )  # Modulate back up to the carrier freq
             Ymod[m, k, :] = yfilt  # Save the filtered signal
 
     return Xmod, Ymod, cf
 
 
 def ModCorr(Xmod, Ymod):
-    '''
+    """
     Function to compute the cross-correlations between the input signal
     time-frequency envelope and the distortion time-frequency envelope. The
     cepstral coefficients or envelopes in each frequency band have been
@@ -300,7 +311,7 @@ def ModCorr(Xmod, Ymod):
 
     James M. Kates, 21 February 2019.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
     # Processing parameters
     nchan = Xmod.shape[0]  # Number of basis functions
     nmod = Xmod.shape[1]  # Number of modulation filters
@@ -313,11 +324,11 @@ def ModCorr(Xmod, Ymod):
             # Index j gives the input reference band
             xj = Xmod[j, m]  # Input freq band j, modulation freq m
             xj = xj - np.mean(xj)
-            xsum = np.sum(xj ** 2)
+            xsum = np.sum(xj**2)
             # Processed signal band
             yj = Ymod[j, m]  # Processed freq band j, modulation freq m
             yj = yj - np.mean(yj)
-            ysum = np.sum(yj ** 2)
+            ysum = np.sum(yj**2)
             # Cross-correlate the reference and processed signals
             if (xsum < small) or (ysum < small):
                 CM[j, m] = 0

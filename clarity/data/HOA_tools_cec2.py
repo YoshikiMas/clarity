@@ -216,9 +216,7 @@ def compute_band_rotation(el, rotations, output):
                 w *= ww
             rotations[el][mm, nn] = u + v + w
 
-    starting_index = int(
-        np.sum(np.array([i * 2.0 + 1.0 for i in np.arange(el)], dtype="float32"))
-    )
+    starting_index = el * el
 
     output[
         starting_index : (starting_index + (el * 2 + 1)),
@@ -341,7 +339,7 @@ def ambisonic_convolve(signal, ir, order):
 
 def compute_rms(input, axis=0):
     """Compute rms values along a given axis."""
-    return np.sqrt(np.mean(input ** 2, axis=axis))
+    return np.sqrt(np.mean(input**2, axis=axis))
 
 
 def equalise_rms_levels(inputs):

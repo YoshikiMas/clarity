@@ -1,10 +1,11 @@
 """
 Adopted from https://github.com/kaituoxu/Conv-TasNet
 """
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
 
 EPS = 1e-8
 
@@ -140,8 +141,7 @@ class ConvTasNet(nn.Module):
 
 
 class SpectralEncoder(nn.Module):
-    """Estimation of the nonnegative mixture weight by a 1-D conv layer.
-    """
+    """Estimation of the nonnegative mixture weight by a 1-D conv layer."""
 
     def __init__(self, L, N):
         super(SpectralEncoder, self).__init__()
@@ -164,8 +164,7 @@ class SpectralEncoder(nn.Module):
 
 
 class SpatialEncoder(nn.Module):
-    """Estimation of the nonnegative mixture weight by a 1-D conv layer.
-    """
+    """Estimation of the nonnegative mixture weight by a 1-D conv layer."""
 
     def __init__(self, L, N, num_channels):
         super(SpatialEncoder, self).__init__()
@@ -260,7 +259,7 @@ class TemporalConvNet(nn.Module):
         for r in range(R):
             blocks = []
             for x in range(X):
-                dilation = 2 ** x
+                dilation = 2**x
                 padding = (P - 1) * dilation if causal else (P - 1) * dilation // 2
                 blocks += [
                     TemporalBlock(
@@ -398,8 +397,7 @@ class DepthwiseSeparableConv(nn.Module):
 
 
 class Chomp1d(nn.Module):
-    """To ensure the output length is the same as the input.
-    """
+    """To ensure the output length is the same as the input."""
 
     def __init__(self, chomp_size):
         super(Chomp1d, self).__init__()
@@ -417,7 +415,7 @@ class Chomp1d(nn.Module):
 
 def chose_norm(norm_type, channel_size):
     """The input of normlization will be (M, C, K), where M is batch size,
-       C is channel size and K is sequence length.
+    C is channel size and K is sequence length.
     """
     if norm_type == "gLN":
         return GlobalLayerNorm(channel_size)

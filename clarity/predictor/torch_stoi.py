@@ -2,20 +2,19 @@
 This implementation is from https://github.com/mpariente/pytorch_stoi, please cite and star the repo.
 The pip version of torch_stoi does not include EPS in line 127 & 128, hence could lead to sqrt(0)
 """
-import torch
-from torch import nn
 import numpy as np
-from torch.nn.functional import unfold, pad
+import torch
 import torchaudio
-
-from pystoi.stoi import FS, N_FRAME, NUMBAND, MINFREQ, N, BETA, DYN_RANGE
+from pystoi.stoi import BETA, DYN_RANGE, FS, MINFREQ, N_FRAME, NUMBAND, N
 from pystoi.utils import thirdoct
+from torch import nn
+from torch.nn.functional import pad, unfold
 
 EPS = 1e-8
 
 
 class NegSTOILoss(nn.Module):
-    """ Negated Short Term Objective Intelligibility (STOI) metric, to be used
+    """Negated Short Term Objective Intelligibility (STOI) metric, to be used
         as a loss function.
         Inspired from [1, 2, 3] but not exactly the same : cannot be used as
         the STOI metric directly (use pystoi instead). See Notes.
@@ -87,10 +86,8 @@ class NegSTOILoss(nn.Module):
         obm_mat = thirdoct(sample_rate, self.nfft, NUMBAND, MINFREQ)[0]
         self.OBM = nn.Parameter(torch.from_numpy(obm_mat).float(), requires_grad=False)
 
-    def forward(
-        self, est_targets: torch.Tensor, targets: torch.Tensor,
-    ) -> torch.Tensor:
-        """ Compute negative (E)STOI loss.
+    def forward(self, est_targets: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        """Compute negative (E)STOI loss.
         Args:
             est_targets (torch.Tensor): Tensor containing target estimates.
             targets (torch.Tensor): Tensor containing clean targets.
@@ -114,7 +111,8 @@ class NegSTOILoss(nn.Module):
         if targets.ndim > 2:
             *inner, wav_len = targets.shape
             return self.forward(
-                est_targets.view(-1, wav_len), targets.view(-1, wav_len),
+                est_targets.view(-1, wav_len),
+                targets.view(-1, wav_len),
             ).view(inner)
         if self.do_resample and self.sample_rate != FS:
             targets = self.resample(targets)
@@ -183,7 +181,7 @@ class NegSTOILoss(nn.Module):
 
     @staticmethod
     def detect_silent_frames(x, dyn_range, framelen, hop):
-        """ Detects silent frames on input tensor.
+        """Detects silent frames on input tensor.
         A frame is excluded if its energy is lower than max(energy) - dyn_range
         Args:
             x (torch.Tensor): batch of original speech wav file  (batch, time)
@@ -235,7 +233,7 @@ class NegSTOILoss(nn.Module):
 
     @staticmethod
     def rowcol_norm(x, mask=None):
-        """ Mean/variance normalize axis 2 and 1 of input vector"""
+        """Mean/variance normalize axis 2 and 1 of input vector"""
         for dim in [2, 1]:
             x = meanvar_norm(x, mask=mask, dim=dim)
         return x

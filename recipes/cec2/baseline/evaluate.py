@@ -1,12 +1,14 @@
-import os
 import csv
+import hashlib
 import json
 import logging
-from scipy.io import wavfile
-import numpy as np
-from tqdm import tqdm
+import os
+
 import hydra
+import numpy as np
 from omegaconf import DictConfig
+from scipy.io import wavfile
+from tqdm import tqdm
 
 from clarity.evaluator.haspi import haspi_v2_be
 
@@ -17,7 +19,7 @@ def read_csv_scores(file):
     score_dict = {}
     with open(file, "r") as f:
         reader = csv.reader(f)
-        header = next(reader)
+        _ = next(reader)
         for row in reader:
             score_dict[row[0] + "_" + row[1]] = float(row[2])
     return score_dict
@@ -56,6 +58,11 @@ def run_calculate_SI(cfg: DictConfig) -> None:
     for scene in tqdm(scenes_listeners):
         for listener in scenes_listeners[scene]:
             logger.info(f"Running SI calculation: scene {scene}, listener {listener}")
+            if cfg.evaluate.set_random_seed:
+                scene_md5 = int(hashlib.md5(scene.encode("utf-8")).hexdigest(), 16) % (
+                    10**8
+                )
+                np.random.seed(scene_md5)
 
             # retrieve audiograms
             cfs = np.array(listener_audiograms[listener]["audiogram_cfs"])
@@ -85,8 +92,8 @@ def run_calculate_SI(cfg: DictConfig) -> None:
             ref_anechoic = ref_anechoic / 32768.0
             ref_target = ref_target / 32768.0
 
-            rms_target = np.mean(ref_target ** 2, axis=0) ** 0.5
-            rms_anechoic = np.mean(ref_anechoic ** 2, axis=0) ** 0.5
+            rms_target = np.mean(ref_target**2, axis=0) ** 0.5
+            rms_anechoic = np.mean(ref_anechoic**2, axis=0) ** 0.5
             ref = ref_anechoic * rms_target / rms_anechoic
 
             si = haspi_v2_be(
@@ -103,6 +110,12 @@ def run_calculate_SI(cfg: DictConfig) -> None:
             csv_lines.append([scene, listener, si])
 
             if cfg.evaluate.cal_unprocessed_si:
+                if cfg.evaluate.set_random_seed:
+                    scene_md5 = int(
+                        hashlib.md5(scene.encode("utf-8")).hexdigest(), 16
+                    ) % (10**8)
+                    np.random.seed(scene_md5)
+
                 fs_unproc, unproc = wavfile.read(
                     os.path.join(cfg.path.scenes_folder, f"{scene}_mix_CH1.wav")
                 )
@@ -150,4 +163,3 @@ def run_calculate_SI(cfg: DictConfig) -> None:
 
 if __name__ == "__main__":
     run_calculate_SI()
-

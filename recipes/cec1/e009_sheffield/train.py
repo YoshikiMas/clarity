@@ -1,24 +1,22 @@
-import os
 import json
 import logging
+import os
 
 import hydra
-from omegaconf import DictConfig
-
-import torch
-from torch.utils.data import DataLoader
-import torchaudio
 import numpy as np
-
 import pytorch_lightning as pl
+import torch
+import torchaudio
+from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
+from torch.utils.data import DataLoader
 
+from clarity.dataset.cec1_dataset import CEC1Dataset
+from clarity.engine.losses import SNRLoss, STOILevelLoss
 from clarity.engine.system import System
 from clarity.enhancer.dnn.mc_conv_tasnet import ConvTasNet
 from clarity.enhancer.dsp.filter import AudiometricFIR
-from clarity.engine.losses import SNRLoss, STOILevelLoss
 from clarity.predictor.torch_msbg import MSBGHearingModel
-from clarity.dataset.cec1_dataset import CEC1Dataset
 
 logger = logging.getLogger(__name__)
 
@@ -114,9 +112,7 @@ def train_den(cfg, ear):
     state_dict = torch.load(checkpoint.best_model_path)
     den_module.load_state_dict(state_dict=state_dict["state_dict"])
     den_module.cpu()
-    torch.save(
-        den_module.model.state_dict(), os.path.join(exp_dir, "best_model.pth"),
-    )
+    torch.save(den_module.model.state_dict(), os.path.join(exp_dir, "best_model.pth"))
 
 
 def train_amp(cfg, ear):
@@ -208,9 +204,7 @@ def train_amp(cfg, ear):
     state_dict = torch.load(checkpoint.best_model_path)
     amp_module.load_state_dict(state_dict=state_dict["state_dict"])
     amp_module.cpu()
-    torch.save(
-        amp_module.model.state_dict(), os.path.join(exp_dir, "best_model.pth"),
-    )
+    torch.save(amp_module.model.state_dict(), os.path.join(exp_dir, "best_model.pth"))
 
 
 @hydra.main(config_path=".", config_name="config")

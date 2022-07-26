@@ -1,14 +1,15 @@
-import os
 import logging
+import os
+import pathlib
 import subprocess
 import tempfile
-import numpy as np
-import pathlib
-import soundfile
-from soundfile import SoundFile
-from jinja2 import Environment, FileSystemLoader
 
-from clarity.enhancer.gha.gha_utils import get_gaintable, format_gaintable
+import numpy as np
+import soundfile
+from jinja2 import Environment, FileSystemLoader
+from soundfile import SoundFile
+
+from clarity.enhancer.gha.gha_utils import format_gaintable, get_gaintable
 
 
 class GHAHearingAid:
@@ -43,7 +44,7 @@ class GHAHearingAid:
         self.test_nbits = test_nbits
 
     def create_configured_cfgfile(
-        self, input_file, output_file, formatted_sGt, cfg_template_file,
+        self, input_file, output_file, formatted_sGt, cfg_template_file
     ):
         """Using Jinja2, generates cfg file for given configuration.
 
@@ -97,7 +98,6 @@ class GHAHearingAid:
             outfile_name (str): File in which to store output wav files
             dry_run (bool): perform dry run only
         """
-        dirname = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
         logging.info(f"Processing {outfile_name} with listener {listener}")
 
         logging.info(f"Audiogram severity is {audiogram.severity}")
@@ -139,7 +139,7 @@ class GHAHearingAid:
         with open(cfg_filename, "w") as f:
             f.write(
                 self.create_configured_cfgfile(
-                    merged_filename, outfile_name, formatted_sGt, cfg_template,
+                    merged_filename, outfile_name, formatted_sGt, cfg_template
                 )
             )
 
@@ -169,7 +169,7 @@ class GHAHearingAid:
             sig = np.expand_dims(sig, axis=1)
 
         if not np.all(np.sum(abs(sig), axis=0)):
-            raise ValueError(f"Channel empty.")
+            raise ValueError("Channel empty.")
 
         self.write_signal(outfile_name, sig, floating_point=True)
 
@@ -190,7 +190,7 @@ class GHAHearingAid:
         """
         try:
             wave_file = SoundFile(filename)
-        except:
+        except:  # noqa E722
             # Ensure incorrect error (24 bit) is not generated
             raise Exception(f"Unable to read {filename}.")
 
@@ -241,17 +241,13 @@ class GHAHearingAid:
         signal_CH3 = self.read_signal(infile_names[2])
 
         merged_signal = np.zeros((len(signal_CH1), 4))
-        merged_signal[:, 0] = signal_CH1[
-            :, 0
-        ]  # channel index 0 = front microphone on the left hearing aid
-        merged_signal[:, 1] = signal_CH1[
-            :, 1
-        ]  # channel index 1 = front microphone on the right hearing aid
-        merged_signal[:, 2] = signal_CH3[
-            :, 0
-        ]  # channel index 2 = rear microphone on the left hearing aid
-        merged_signal[:, 3] = signal_CH3[
-            :, 1
-        ]  # channel index 3 = rear microphone on the right hearing aid
+        # channel index 0 = front microphone on the left hearing aid
+        merged_signal[:, 0] = signal_CH1[:, 0]
+        # channel index 1 = front microphone on the right hearing aid
+        merged_signal[:, 1] = signal_CH1[:, 1]
+        # channel index 2 = rear microphone on the left hearing aid
+        merged_signal[:, 2] = signal_CH3[:, 0]
+        # channel index 3 = rear microphone on the right hearing aid
+        merged_signal[:, 3] = signal_CH3[:, 1]
 
         self.write_signal(merged_filename, merged_signal, floating_point=True)

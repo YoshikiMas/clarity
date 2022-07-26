@@ -3,20 +3,19 @@ import json
 import logging
 import math
 from pathlib import Path
-import librosa
 
+import librosa
 import numpy as np
 
 # from clarity_core import signal as ccs
 # from clarity_core.signal import SPEECH_FILTER
-from matplotlib.font_manager import json_load
-from scipy.io import wavfile, loadmat
+from scipy.io import loadmat, wavfile
 from scipy.signal import convolve
 from tqdm import tqdm
 
-from clarity.data.utils import better_ear_speechweighted_snr, SPEECH_FILTER
 import clarity.data.HOA_tools_cec2 as hoa
 from clarity.data.HOA_tools_cec2 import HOARotator
+from clarity.data.utils import SPEECH_FILTER, better_ear_speechweighted_snr
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,7 @@ def two_point_rotation(rotation, origin, duration):
     """
     angle_origin = np.arctan2(origin[1], origin[0])
     angles = [math.radians(r["angle"]) - angle_origin for r in rotation]
-    logger.info(f"{angles=}")
+    logger.info(f"angles={angles}")
     theta = hoa.rotation_vector(
         angles[0], angles[1], duration, rotation[0]["sample"], rotation[1]["sample"]
     )
@@ -216,7 +215,7 @@ class SceneRenderer:
         # TODO: set target to a fixed reference level??
         target_filt = convolve(target, SPEECH_FILTER, mode="full", method="fft")
         # rms of the target after speech weighted filter
-        target_rms = np.sqrt(np.mean(target_filt ** 2))
+        target_rms = np.sqrt(np.mean(target_filt**2))
         logger.info(f"target rms: {target_rms}")
         target_hoair = self.paths.hoairs.format(dataset=scene["dataset"])
         target_hoair = f"{target_hoair}/HOA_{room_id}_t.wav"
@@ -254,7 +253,9 @@ class SceneRenderer:
 
         flat_hoa_interferers = sum(padded_interferers)
 
-        logger.info(f"{hoa_target.shape=}; {flat_hoa_interferers.shape=}")
+        logger.info(
+            f"hoa_target.shape={hoa_target.shape}; flat_hoa_interferers.shape={flat_hoa_interferers.shape}"
+        )
 
         th = two_point_rotation(
             scene["listener"]["rotation"],
@@ -383,5 +384,5 @@ class SceneRenderer:
 
             # Stage 2: Mix down to the binaural domain
             self.generate_binaural_signals(
-                scene, target, interferers, anechoic, output_path,
+                scene, target, interferers, anechoic, output_path
             )

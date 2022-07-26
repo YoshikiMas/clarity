@@ -1,15 +1,15 @@
-import os
 import json
 import logging
-import numpy as np
-from tqdm import tqdm
-from scipy.io import wavfile
+import os
 
 import hydra
+import numpy as np
 from omegaconf import DictConfig
+from scipy.io import wavfile
+from tqdm import tqdm
 
-from clarity.enhancer.nalr import NALR
 from clarity.enhancer.compressor import Compressor
+from clarity.enhancer.nalr import NALR
 
 logger = logging.getLogger(__name__)
 
@@ -51,16 +51,14 @@ def enhance(cfg: DictConfig) -> None:
             enhanced = np.stack([out_l, out_r], axis=1)
             filename = f"{scene}_{listener}_HA-output.wav"
 
+            if cfg.soft_clip:
+                enhanced = np.tanh(enhanced)
             n_clipped = np.sum(np.abs(enhanced) > 1.0)
             if n_clipped > 0:
                 logger.warning(f"Writing {filename}: {n_clipped} samples clipped")
-                if cfg.soft_clip:
-                    enhanced = np.tanh(enhanced)
-                np.clip(enhanced, -1.0, 1.0, out=enhanced)
+            np.clip(enhanced, -1.0, 1.0, out=enhanced)
             signal_16 = (32768.0 * enhanced).astype(np.int16)
-            wavfile.write(
-                os.path.join(enhanced_folder, filename), fs, signal_16,
-            )
+            wavfile.write(os.path.join(enhanced_folder, filename), fs, signal_16)
 
 
 if __name__ == "__main__":

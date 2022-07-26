@@ -1,10 +1,10 @@
 import numpy as np
-from scipy.signal import resample_poly, cheby2, lfilter, butter, group_delay, correlate
 from numba import jit
+from scipy.signal import butter, cheby2, correlate, group_delay, lfilter, resample_poly
 
 
 def EarModel(x, xsamp, y, ysamp, HL, itype, Level1):
-    '''
+    """
     Function to implement a cochlear model that includes the middle ear,
     auditory filter bank, OHC dynamic-range compression, and IHC attenuation.
     The inputs are the reference and processed signals that are to be
@@ -47,7 +47,7 @@ def EarModel(x, xsamp, y, ysamp, HL, itype, Level1):
     BM envelope coverted to dB SL, 2 Oct 2012.
     Filterbank group delay corrected, 14 Dec 2012.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
 
     # Processing parameters
     # OHC and IHC parameters for the hearing loss
@@ -71,9 +71,10 @@ def EarModel(x, xsamp, y, ysamp, HL, itype, Level1):
     HLmax = [100, 100, 100, 100, 100, 100]
     shift = 0.02  # Basal shift of 0.02 of the basilar membrane length
     cfreq1 = CenterFreq(nchan, shift)  # Center frequencies for the control
-    _, BW1, _, _, _ = LossParameters(HLmax, cfreq1);  # Maximum BW for the control
+    _, BW1, _, _, _ = LossParameters(HLmax, cfreq1)
+    # Maximum BW for the control
 
-    ## Input signal adjustments
+    # Input signal adjustments
     # Convert the signals to 24 kHz sampling rate.
     # Using 24 kHz guarantees that all of the cochlear filters have the same shape independent of the incoming signal sampling rates
     x24, _ = Resamp24kHz(x, xsamp)
@@ -92,7 +93,7 @@ def EarModel(x, xsamp, y, ysamp, HL, itype, Level1):
     # if itype == 1:
     #     pass
 
-    ## Cochlear model
+    # Cochlear model
     # Middle ear
     xmid = MiddleEar(x24, fsamp)
     ymid = MiddleEar(y24, fsamp)
@@ -118,7 +119,9 @@ def EarModel(x, xsamp, y, ysamp, HL, itype, Level1):
     # Loop over each filter in the auditory filter bank
     for n in range(nchan):
         # Control signal envelopes for the reference and processed signals
-        xcontrol, _, ycontrol, _ = GammatoneBM(xmid, BW1[n], ymid, BW1[n], fsamp, cfreq1[n])
+        xcontrol, _, ycontrol, _ = GammatoneBM(
+            xmid, BW1[n], ymid, BW1[n], fsamp, cfreq1[n]
+        )
 
         # Adjust the auditory filter bandwidths for the average signal level
         BWx[n] = BWadjust(xcontrol, BWminx[n], BW1[n], Level1)  # Reference
@@ -128,14 +131,18 @@ def EarModel(x, xsamp, y, ysamp, HL, itype, Level1):
         xenv, xbm, yenv, ybm = GammatoneBM(xmid, BWx[n], ymid, BWy[n], fsamp, cfreq[n])
 
         # RMS levels of the ref and output envelopes for linear metric
-        xave[n] = np.sqrt(np.mean(xenv ** 2))
-        yave[n] = np.sqrt(np.mean(yenv ** 2))
-        xcave[n] = np.sqrt(np.mean(xcontrol ** 2))
-        ycave[n] = np.sqrt(np.mean(ycontrol ** 2))
+        xave[n] = np.sqrt(np.mean(xenv**2))
+        yave[n] = np.sqrt(np.mean(yenv**2))
+        xcave[n] = np.sqrt(np.mean(xcontrol**2))
+        ycave[n] = np.sqrt(np.mean(ycontrol**2))
 
         # Cochlear compression for the signal envelopes and BM motion
-        xc, xb[n] = EnvCompressBM(xenv, xbm, xcontrol, attnOHCx[n], lowkneex[n], CRx[n], fsamp, Level1)
-        yc, yb[n] = EnvCompressBM(yenv, ybm, ycontrol, attnOHCy[n], lowkneey[n], CRy[n], fsamp, Level1)
+        xc, xb[n] = EnvCompressBM(
+            xenv, xbm, xcontrol, attnOHCx[n], lowkneex[n], CRx[n], fsamp, Level1
+        )
+        yc, yb[n] = EnvCompressBM(
+            yenv, ybm, ycontrol, attnOHCy[n], lowkneey[n], CRy[n], fsamp, Level1
+        )
 
         # Correct for the delay between the reference and output
         yc = EnvAlign(xc, yc)  # Align processed envelope to reference
@@ -170,7 +177,7 @@ def EarModel(x, xsamp, y, ysamp, HL, itype, Level1):
 
 
 def CenterFreq(nchan, shift=None):
-    '''
+    """
     Function to compute the ERB frequency spacing for the gammatone
     filter bank. The equation comes from Malcolm Slaney (1993).
 
@@ -187,7 +194,7 @@ def CenterFreq(nchan, shift=None):
     Frequency shift added 22 August 2008.
     Lower and upper frequencies fixed at 80 and 8000 Hz, 19 June 2012.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
     lowFreq = 80
     highFreq = 8000
 
@@ -214,15 +221,17 @@ def CenterFreq(nchan, shift=None):
     # All of the following expressions are derived in Apple TR #35, "An Efficient Implementation of the Patterson-Holdsworth Cochlear
     # Filter Bank" by Malcolm Slaney.
     cf = -(EarQ * minBW) + np.exp(
-        np.arange(1, nchan) * (-np.log(highFreq + EarQ * minBW) + np.log(lowFreq + EarQ * minBW)) / (nchan - 1)) * (
-                     highFreq + EarQ * minBW)
+        np.arange(1, nchan)
+        * (-np.log(highFreq + EarQ * minBW) + np.log(lowFreq + EarQ * minBW))
+        / (nchan - 1)
+    ) * (highFreq + EarQ * minBW)
     cf = np.insert(cf, 0, highFreq)  # Last center frequency is set to highFreq
     cf = np.flip(cf)
     return cf
 
 
 def LossParameters(HL, cfreq):
-    '''
+    """
     Function to apportion the hearing loss to the outer hair cells (OHC)
     and the inner hair cells (IHC) and to increase the bandwidth of the
     cochlear filters in proportion to the OHC fraction of the total loss.
@@ -230,14 +239,14 @@ def LossParameters(HL, cfreq):
     Calling variables:
     HL		hearing loss at the 6 audiometric frequencies
     cfreq		array containing the center frequencies of the gammatone filters
-    			arranged from low to high
+                arranged from low to high
 
     Returned values:
     attnOHC	attenuation in dB for the OHC gammatone filters
     BW		OHC filter bandwidth expressed in terms of normal
     lowknee	Lower kneepoint for the low-level linear amplification
     CR		Ranges from 1.4:1 at 150 Hz to 3.5:1 at 8 kHz for normal
-    			hearing. Reduced in proportion to the OHC loss to 1:1.
+                hearing. Reduced in proportion to the OHC loss to 1:1.
     attnIHC	attenuation in dB for the input to the IHC synapse
 
     James M. Kates, 25 January 2007.
@@ -245,7 +254,7 @@ def LossParameters(HL, cfreq):
     Low-frequency extent changed to 80 Hz, 27 Oct 2011.
     Lower kneepoint set to 30 dB, 19 June 2012.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
     # Audiometric frequencies in Hz
     aud = [250, 500, 1000, 2000, 4000, 6000]
 
@@ -256,7 +265,8 @@ def LossParameters(HL, cfreq):
 
     # Interpolated gain in dB
     loss = np.interp(cfreq, fv, np.insert(HL, [0, len(HL)], [HL[0], HL[-1]]))
-    loss = np.maximum(loss, 0);  # Make sure there are no negative losses
+    loss = np.maximum(loss, 0)
+    # Make sure there are no negative losses
 
     # Compression ratio changes linearly with ERB rate from 1.25:1 in the 80-Hz frequency band to 3.5:1 in the 8-kHz frequency band
     CR = 1.25 + 2.25 * np.arange(nfilt) / (nfilt - 1)
@@ -272,7 +282,9 @@ def LossParameters(HL, cfreq):
     attnIHC = 0.2 * np.copy(loss)
 
     attnOHC[loss >= thrOHC] = 0.8 * thrOHC[loss >= thrOHC]
-    attnIHC[loss >= thrOHC] = 0.2 * thrOHC[loss >= thrOHC] + (loss[loss >= thrOHC] - thrOHC[loss >= thrOHC])
+    attnIHC[loss >= thrOHC] = 0.2 * thrOHC[loss >= thrOHC] + (
+        loss[loss >= thrOHC] - thrOHC[loss >= thrOHC]
+    )
 
     # Adjust the OHC bandwidth in proportion to the OHC loss
     BW = np.ones(nfilt)
@@ -288,7 +300,7 @@ def LossParameters(HL, cfreq):
 
 
 def Resamp24kHz(x, fsampx):
-    '''
+    """
     Function to resample the input signal at 24 kHz. The input sampling rate
     is rounded to the nearest kHz to comput the sampling rate conversion
     ratio.
@@ -303,7 +315,7 @@ def Resamp24kHz(x, fsampx):
 
     James M. Kates, 20 June 2011.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
 
     # Sampling rate information
     fsamp = 24000
@@ -319,8 +331,8 @@ def Resamp24kHz(x, fsampx):
         y = resample_poly(x, fy, fx)
 
         # Match the RMS level of the resampled signal to that of the input
-        xRMS = np.sqrt(np.mean(x ** 2))
-        yRMS = np.sqrt(np.mean(y ** 2))
+        xRMS = np.sqrt(np.mean(x**2))
+        yRMS = np.sqrt(np.mean(y**2))
         y = (xRMS / yRMS) * y
 
     else:
@@ -343,15 +355,15 @@ def Resamp24kHz(x, fsampx):
         yfilt = lfilter(by, ay, y, axis=0)
 
         # Compute the input and output RMS levels within the 21 kHz bandwidth and match the output to the input
-        xRMS = np.sqrt(np.mean(xfilt ** 2))
-        yRMS = np.sqrt(np.mean(yfilt ** 2))
+        xRMS = np.sqrt(np.mean(xfilt**2))
+        yRMS = np.sqrt(np.mean(yfilt**2))
         y = (xRMS / yRMS) * y
 
     return y, fsamp
 
 
 def InputAlign(x, y):
-    '''
+    """
     Function to provide approximate temporal alignment of the reference and
     processed output signals. Leading and trailing zeros are then pruned.
     The function assumes that the two sequences have the same sampling rate:
@@ -370,7 +382,7 @@ def InputAlign(x, y):
     Match the length of the processed output to the reference for the
     purposes of computing the cross-covariance
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
 
     # Match the length of the processed output to the reference for the purposes of computing the cross-covariance
     nx = len(x)
@@ -378,8 +390,9 @@ def InputAlign(x, y):
     nsamp = min(nx, ny)
 
     # Determine the delay of the output relative to the reference
-    xy = correlate(x[:nsamp] - np.mean(x[:nsamp]), y[:nsamp] - np.mean(y[:nsamp]),
-                   "full")  # Matlab code uses xcov thus the subtraction of mean
+    xy = correlate(
+        x[:nsamp] - np.mean(x[:nsamp]), y[:nsamp] - np.mean(y[:nsamp]), "full"
+    )  # Matlab code uses xcov thus the subtraction of mean
     index = np.argmax(np.abs(xy))
     delay = nsamp - index - 1
 
@@ -393,7 +406,7 @@ def InputAlign(x, y):
         y = np.concatenate((y[delay:ny], np.zeros(delay)))
     else:
         # Output advanced relative to the reference
-        y = np.concatenate((np.zeros(-delay), y[:ny + delay]))
+        y = np.concatenate((np.zeros(-delay), y[: ny + delay]))
 
     # Find the start and end of the noiseless reference sequence
     xabs = np.abs(x)
@@ -407,14 +420,14 @@ def InputAlign(x, y):
     # Prune the sequences to remove the leading and trailing zeros
     if nx1 > ny:
         nx1 = ny
-    xp = x[nx0:nx1 + 1]
-    yp = y[nx0:nx1 + 1]
+    xp = x[nx0 : nx1 + 1]
+    yp = y[nx0 : nx1 + 1]
 
     return xp, yp
 
 
 def MiddleEar(x, fsamp):
-    '''
+    """
     Function to design the middle ear filters and process the input
     through the cascade of filters. The middle ear model is a 2-pole HP
     filter at 350 Hz in series with a 1-pole LP filter at 5000 Hz. The
@@ -422,15 +435,15 @@ def MiddleEar(x, fsamp):
     threshold.
 
     Calling variables:
-    	x		input signal
-    	fsamp	sampling rate in Hz
+        x		input signal
+        fsamp	sampling rate in Hz
 
     Function output:
-    	xout	filtered output
+        xout	filtered output
 
     James M. Kates, 18 January 2007.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
 
     # Design the 1-pole Butterworth LP using the bilinear transformation
     bLP, aLP = butter(1, 5000 / (0.5 * fsamp))
@@ -439,7 +452,7 @@ def MiddleEar(x, fsamp):
     y = lfilter(bLP, aLP, x)
 
     # Design the 2-pole Butterworth HP using the bilinear transformation
-    bHP, aHP = butter(2, 350 / (0.5 * fsamp), 'high')
+    bHP, aHP = butter(2, 350 / (0.5 * fsamp), "high")
 
     # HP fitler the signal
     xout = lfilter(bHP, aHP, y)
@@ -448,7 +461,7 @@ def MiddleEar(x, fsamp):
 
 
 def GammatoneBM(x, BWx, y, BWy, fs, cf):
-    '''
+    """
     4th-order gammatone auditory filter. This implementation is based
     on the c program published on-line by Ning Ma, U. Sheffield, UK,
     that gives an implementation of the Martin Cooke (1991) filters:
@@ -480,7 +493,7 @@ def GammatoneBM(x, BWx, y, BWy, fs, cf):
     Output sine and cosine sequences, 19 June 2012.
     Cosine/sine loop speed increased, 9 August 2013.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
     # Filter ERB from Moore and Glasberg (1983)
     earQ = 9.26449
     minBW = 24.7
@@ -493,7 +506,7 @@ def GammatoneBM(x, BWx, y, BWy, fs, cf):
     x = x[:nsamp]
     y = y[:nsamp]
 
-    ## Filter the first signal
+    # Filter the first signal
     # Initialize the filter coefficients
     tpt = 2 * np.pi / fs
     tptBW = BWx * tpt * ERB * 1.019
@@ -507,7 +520,9 @@ def GammatoneBM(x, BWx, y, BWy, fs, cf):
 
     # Initialize the complex demodulation
     npts = len(x)
-    sincf, coscf = GammatoneBW_demodulation(npts, tpt, cf, np.zeros(npts), np.zeros(npts))
+    sincf, coscf = GammatoneBW_demodulation(
+        npts, tpt, cf, np.zeros(npts), np.zeros(npts)
+    )
 
     # Filter the real and imaginary parts of the signal
     ureal = lfilter([1, a1, a5], [1, -a1, -a2, -a3, -a4], x * coscf)
@@ -517,7 +532,7 @@ def GammatoneBM(x, BWx, y, BWy, fs, cf):
     BMx = gain * (ureal * coscf + uimag * sincf)
     envx = gain * np.sqrt(ureal * ureal + uimag * uimag)
 
-    ## Filter the second signal using the existing cosine and sine sequences
+    # Filter the second signal using the existing cosine and sine sequences
     tptBW = BWy * tpt * ERB * 1.019
     a = np.exp(-tptBW)
     a1 = 4.0 * a
@@ -557,7 +572,7 @@ def GammatoneBW_demodulation(npts, tpt, cf, coscf, sincf):
 
 
 def BWadjust(control, BWmin, BWmax, Level1):
-    '''
+    """
     Function to compute the increase in auditory filter bandwidth in response
     to high signal levels.
 
@@ -572,10 +587,10 @@ def BWadjust(control, BWmin, BWmax, Level1):
 
     James M. Kates, 21 June 2011.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
 
     # Compute the control signal level
-    cRMS = np.sqrt(np.mean(control ** 2))
+    cRMS = np.sqrt(np.mean(control**2))
     cdB = 20 * np.log10(cRMS) + Level1
 
     # Adjust the auditory filter bandwidth
@@ -593,7 +608,7 @@ def BWadjust(control, BWmin, BWmax, Level1):
 
 
 def EnvCompressBM(envsig, bm, control, attnOHC, thrLow, CR, fsamp, Level1):
-    '''
+    """
     Function to compute the cochlear compression in one auditory filter
     band. The gain is linear below the lower threshold, compressive with
     a compression ratio of CR:1 between the lower and upper thresholds,
@@ -602,16 +617,16 @@ def EnvCompressBM(envsig, bm, control, attnOHC, thrLow, CR, fsamp, Level1):
 
     Calling variables:
     envsig	analytic signal envelope (magnitude) returned by the
-    			gammatone filter bank
+                gammatone filter bank
     bm        BM motion output by the filter bank
     control	analytic control envelope returned by the wide control
-    			path filter bank
+                path filter bank
     attnOHC	OHC attenuation at the input to the compressor
     thrLow	kneepoint for the low-level linear amplification
     CR		compression ratio
     fsamp		sampling rate in Hz
     Level1	dB reference level: a signal having an RMS value of 1 is
-    			assigned to Level1 dB SPL.
+                assigned to Level1 dB SPL.
 
     Function outputs:
     y			compressed version of the signal envelope
@@ -623,7 +638,7 @@ def EnvCompressBM(envsig, bm, control, attnOHC, thrLow, CR, fsamp, Level1):
     Change in the OHC I/O function, 9 March 2007.
     Two-tone suppression added 22 August 2008.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
     # Initialize the compression parameters
     thrHigh = 100
 
@@ -651,7 +666,7 @@ def EnvCompressBM(envsig, bm, control, attnOHC, thrLow, CR, fsamp, Level1):
 
 
 def EnvAlign(x, y):
-    '''
+    """
     Function to align the envelope of the processed signal to that of the
     reference signal.
 
@@ -666,7 +681,7 @@ def EnvAlign(x, y):
     Absolute value of the cross-correlation peak removed, 22 June 2012.
     Cross-correlation range reduced, 13 August 2013.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
 
     # The MATLAB code limits the range of lags to search (to 100 ms) to save computation time - no such option exists in numpy,
     # but the code below limits the delay to the same range as in Matlab, for consistent results
@@ -677,7 +692,7 @@ def EnvAlign(x, y):
     lags = min(lags, npts)
 
     xy = correlate(x, y, "full")
-    location = np.argmax(xy[npts - lags:npts + lags])  # Limit the range in which
+    location = np.argmax(xy[npts - lags : npts + lags])  # Limit the range in which
     delay = lags - location - 1
 
     # Time shift the output sequence
@@ -686,13 +701,13 @@ def EnvAlign(x, y):
         y = np.concatenate((y[delay:npts], np.zeros(delay)))
     elif delay < 0:
         # Output advanced relative to the reference
-        y = np.concatenate((np.zeros(-delay), y[:npts + delay]))
+        y = np.concatenate((np.zeros(-delay), y[: npts + delay]))
 
     return y
 
 
 def EnvSL(env, bm, attnIHC, Level1):
-    '''
+    """
     Function to convert the compressed envelope returned by
     cochlea_envcomp to dB SL.
 
@@ -710,7 +725,7 @@ def EnvSL(env, bm, attnIHC, Level1):
     IHC attenuation added 9 March 2007.
     Basilar membrane vibration conversion added 2 October 2012.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
     # Convert the envelope to dB SL
     small = 1e-30
     y = Level1 - attnIHC + 20 * np.log10(env + small)
@@ -725,7 +740,7 @@ def EnvSL(env, bm, attnIHC, Level1):
 
 @jit(nopython=True)
 def IHCadapt(xdB, xBM, delta, fsamp):
-    '''
+    """
     Function to provide inner hair cell (IHC) adaptation. The adaptation is
     based on an equivalent RC circuit model, and the derivatives are mapped
     into 1st-order backward differences. Rapid and short-term adaptation are
@@ -749,7 +764,7 @@ def IHCadapt(xdB, xBM, delta, fsamp):
 
     James M. Kates, 1 October 2012.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
     # Test the amount of overshoot
     dsmall = 1.0001
     if delta < dsmall:
@@ -809,7 +824,7 @@ def IHCadapt(xdB, xBM, delta, fsamp):
 
 
 def BMaddnoise(x, thr, Level1):
-    '''
+    """
     Function to apply the IHC attenuation to the BM motion and to add a
     low-level Gaussian noise to give the auditory threshold.
 
@@ -824,18 +839,18 @@ def BMaddnoise(x, thr, Level1):
     James M. Kates, 19 June 2012.
     Just additive noise, 2 Oct 2012.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
     gn = 10 ** ((thr - Level1) / 20)  # Linear gain for the noise
 
-    rng = np.random.default_rng()
-    noise = gn * rng.standard_normal(x.shape)  # Gaussian RMS=1, then attenuated
+    # rng = np.random.default_rng()
+    noise = gn * np.random.standard_normal(x.shape)  # Gaussian RMS=1, then attenuated
     y = x + noise
 
     return y
 
 
 def GroupDelayComp(xenv, BW, cfreq, fsamp):
-    '''
+    """
     Function to compensate for the group delay of the gammatone filter bank.
     The group delay is computed for each filter at its center frequency. The
     firing rate output of the IHC model is then adjusted so that all outputs
@@ -852,7 +867,7 @@ def GroupDelayComp(xenv, BW, cfreq, fsamp):
 
     James M. Kates, 28 October 2011.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
     # Processing parameters
     nchan = len(BW)
 
@@ -874,8 +889,10 @@ def GroupDelayComp(xenv, BW, cfreq, fsamp):
     # Compute the group delay in samples at fsamp for each filter
     gd = np.zeros(nchan)
     for n in range(nchan):
-        _, gd[n] = group_delay(([1, a1[n], a5[n]], [1, -a1[n], -a2[n], -a3[n], -a4[n]]), 1)
-    gd = np.round(gd).astype('int')  # convert to integer samples
+        _, gd[n] = group_delay(
+            ([1, a1[n], a5[n]], [1, -a1[n], -a2[n], -a3[n], -a4[n]]), 1
+        )
+    gd = np.round(gd).astype("int")  # convert to integer samples
 
     # Compute the delay correlation
     gmin = np.min(gd)
@@ -888,13 +905,13 @@ def GroupDelayComp(xenv, BW, cfreq, fsamp):
     for n in range(nchan):
         r = xenv[n]
         npts = len(r)
-        yenv[n] = np.concatenate((np.zeros(correct[n]), r[:npts - correct[n]]))
+        yenv[n] = np.concatenate((np.zeros(correct[n]), r[: npts - correct[n]]))
 
     return yenv
 
 
 def aveSL(env, control, attnOHC, thrLow, CR, attnIHC, Level1):
-    '''
+    """
     Function to covert the RMS average output of the gammatone filter bank
     into dB SL. The gain is linear below the lower threshold, compressive
     with a compression ratio of CR:1 between the lower and upper thresholds,
@@ -903,14 +920,14 @@ def aveSL(env, control, attnOHC, thrLow, CR, attnIHC, Level1):
 
     Calling variables:
     env		analytic signal envelope (magnitude) returned by the
-    			gammatone filter bank, RMS average level
+                gammatone filter bank, RMS average level
     control   control signal envelope
     attnOHC	OHC attenuation at the input to the compressor
     thrLow	kneepoint for the low-level linear amplification
     CR		compression ratio
     attnIHC	IHC attenuation at the input to the synapse
     Level1	dB reference level: a signal having an RMS value of 1 is
-    			assigned to Level1 dB SPL.
+                assigned to Level1 dB SPL.
 
     Function output:
     xdB		compressed output in dB above the impaired threshold
@@ -918,7 +935,7 @@ def aveSL(env, control, attnOHC, thrLow, CR, attnIHC, Level1):
     James M. Kates, 6 August 2007.
     Version for two-tone suppression, 29 August 2008.
     Translated from MATLAB to Python by Zuzanna Podwinska, March 2022.
-    '''
+    """
 
     # Initialize the compression parameters
     thrHigh = 100  # Upper compression threshold
