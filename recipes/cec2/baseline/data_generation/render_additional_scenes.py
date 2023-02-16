@@ -31,7 +31,7 @@ def render_scenes(cfg):
         scene_renderer.render_scenes(scenes)
 
 
-@hydra.main(config_path=".", config_name="additional_data_config")
+@hydra.main(config_path=".", config_name="additional_data_config_small")
 def run(cfg: DictConfig) -> None:
     logger.info("Rendering scenes")
     render_scenes(cfg)

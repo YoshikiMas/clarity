@@ -1,5 +1,5 @@
 path:
-  root: ???
+  root: /home/ymasuyama/cmu-cec2/dataset
   metadata_dir: ${path.root}/clarity_data/metadata
   additional_data_file: ${path.metadata_dir}/scenes.train_additional.json
 
@@ -9,7 +9,7 @@ shuffle_rooms: True
 # Instantiate_scenes
 scene_datasets:
   train:
-    n_scenes: 10000
+    n_scenes: 30000
     room_selection: RANDOM
     scene_start_index: 10001
 
@@ -49,7 +49,7 @@ listener:
 
 # Render scenes
 render_starting_chunk: 0  # If multi_run, should be 0, 10, 20, 30, ..., 1000 if render_n_chunk_to_process=10 & 10000 scenes to render
-render_n_chunk_to_process: 200  # i.e.  (render_n_chunk_to_process * chunk_size) scenes to render
+render_n_chunk_to_process: 100  # i.e.  (render_n_chunk_to_process * chunk_size) scenes to render
 
 scene_renderer:
   train:
